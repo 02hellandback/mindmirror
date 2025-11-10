@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mind Mirror</title>
+  <meta name="description" content="Write freely. See how you think: tone, style, focus — analyzed locally in your browser." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🧠</text></svg>">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    /* Smooth card shadows and scrollbars */
+    .card { box-shadow: 0 10px 25px rgba(0,0,0,.07); }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800">
+  <header class="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 grid place-items-center rounded-2xl bg-slate-900 text-white">MM</div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">Mind Mirror</h1>
+          <p class="text-xs text-slate-500">Write freely. Your cognitive fingerprint appears in real time.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnExportJSON" class="px-4 py-2 rounded-2xl bg-slate-900 text-white text-sm hover:bg-slate-800">Export Analysis (JSON)</button>
+        <button id="btnReset" class="px-4 py-2 rounded-2xl border border-slate-300 text-slate-700 text-sm hover:bg-slate-100">Reset</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Writer Panel -->
+      <section class="card rounded-3xl bg-white p-4 sm:p-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Your Text</h2>
+          <div class="text-xs text-slate-500" id="metaCounts">0 words • 0 chars</div>
+        </div>
+        <textarea id="inputText" class="w-full h-[60vh] lg:h-[70vh] resize-none outline-none rounded-2xl p-4 bg-slate-50/60 focus:bg-slate-50 border border-slate-200" placeholder="Describe a problem, idea, or goal.\nWrite naturally — Mind Mirror analyzes tone, thinking style, and focus."></textarea>
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <span class="px-2 py-1 rounded-full bg-slate-100 border border-slate-200">Local • Private</span>
+          <span class="px-2 py-1 rounded-full bg-slate-100 border border-slate-200">No sign-in</span>
+          <span class="px-2 py-1 rounded-full bg-slate-100 border border-slate-200">Open-source ready</span>
+        </div>
+      </section>
+
+      <!-- Analysis Panel -->
+      <section class="card rounded-3xl bg-white p-4 sm:p-6 grid gap-4 content-start">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Thinking Profile</h2>
+          <span id="toneBadge" class="text-xs px-2 py-1 rounded-full border">Neutral</span>
+        </div>
+
+        <!-- Radar Chart -->
+        <div class="rounded-2xl border border-slate-200 p-4">
+          <canvas id="radarChart" aria-label="Cognitive Radar" role="img"></canvas>
+          <p class="mt-2 text-xs text-slate-500">Dimensions are estimated heuristically from your text and update live.</p>
+        </div>
+
+        <!-- Metrics -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="rounded-2xl border border-slate-200 p-4">
+            <div class="text-xs text-slate-500">Sentiment</div>
+            <div class="text-2xl font-semibold" id="sentimentScore">50</div>
+            <div class="text-xs text-slate-500" id="sentimentDetail">Balanced</div>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-4">
+            <div class="text-xs text-slate-500">Readability (FRE)</div>
+            <div class="text-2xl font-semibold" id="readability">—</div>
+            <div class="text-xs text-slate-500">Higher is easier (Flesch Reading Ease).</div>
+          </div>
+        </div>
+
+        <!-- Highlights -->
+        <div class="rounded-2xl border border-slate-200 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-xs text-slate-500">Key Themes</div>
+              <div class="text-sm text-slate-600">Top recurring terms</div>
+            </div>
+            <button id="btnCopyKeywords" class="text-xs px-2 py-1 rounded-full border hover:bg-slate-50">Copy</button>
+          </div>
+          <div id="keywords" class="flex flex-wrap gap-2 text-sm"></div>
+        </div>
+
+        <!-- Insights -->
+        <div class="rounded-2xl border border-slate-200 p-4">
+          <div class="text-xs text-slate-500 mb-1">Quick Insights</div>
+          <ul id="insights" class="list-disc list-inside text-sm space-y-1 text-slate-700"></ul>
+        </div>
+      </section>
+    </div>
+
+    <footer class="mt-8 text-center text-xs text-slate-500">
+      <p>Made with ♥ — all analysis runs locally in your browser. Share or fork on GitHub.</p>
+    </footer>
+  </main>
+
+  <script>
+    // --------------------------
+    // Lightweight Analysis Lexicons
+    // --------------------------
+    const stopwords = new Set("a,about,above,after,again,against,all,am,an,and,any,are,aren't,as,at,be,because,been,before,being,below,between,both,but,by,could,couldn't,did,didn't,do,does,doesn't,doing,don't,down,during,each,few,for,from,further,had,hadn't,has,hasn't,have,haven't,having,he,he'd,he'll,he's,her,here,here's,hers,herself,him,himself,his,how,how's,i,i'd,i'll,i'm,i've,if,in,into,is,isn't,it,it's,its,itself,let's,me,more,most,mustn't,my,myself,no,nor,not,of,off,on,once,only,or,other,ought,our,ours,ourselves,out,over,own,same,shan't,she,she'd,she'll,she's,should,shouldn't,so,some,such,than,that,that's,the,their,theirs,them,themselves,then,there,there's,these,they,they'd,they'll,they're,they've,this,those,through,to,too,under,until,up,very,was,wasn't,we,we'd,we'll,we're,we've,were,weren't,what,what's,when,when's,where,where's,which,while,who,who's,whom,why,why's,with,won't,would,wouldn't,you,you'd,you'll,you're,you've,your,yours,yourself,yourselves".split(','));
+
+    const positive = new Set(["good","great","excellent","positive","improve","success","benefit","happy","love","win","clear","confident","optimistic","effective","progress","insight","solution","opportunity","strength"]);
+    const negative = new Set(["bad","worse","worst","negative","problem","risk","issue","fail","fear","concern","uncertain","confused","doubt","weakness","blocker","bug","delay","loss"]);
+
+    const analytical = new Set(["therefore","because","hence","thus","data","evidence","hypothesis","assumption","metric","measure","analyze","model","estimate","trade-off","constraint","root cause","system","mechanism","framework"]);
+    const intuitive = new Set(["feel","intuition","gut","vibe","imagine","sense","seems","appears","instinct","vision","creative","flow","spark"]);
+
+    const abstractTerms = new Set(["strategy","concept","idea","vision","principle","value","purpose","theory","innovation","model","plan","approach","paradigm","system","goal"]);
+    const sensoryTerms = new Set(["see","hear","taste","smell","touch","color","texture","sound","bright","dark","loud","soft","warm","cold","rough","smooth","fragrant"]);
+
+    const certainty = new Set(["definitely","clearly","certainly","must","always","never","prove","guarantee"]);
+    const tentative = new Set(["maybe","perhaps","possibly","might","could","roughly","around","approximately","unclear"]);
+
+    const pastCue = new Set(["yesterday","ago","previously","last","was","were","did"]);
+    const presentCue = new Set(["now","today","currently","is","are","do","does"]);
+    const futureCue = new Set(["will","soon","tomorrow","next","plan","aim","intend"]);
+
+    // --------------------------
+    // Helpers
+    // --------------------------
+    const by = (id) => document.getElementById(id);
+
+    function tokenize(text){
+      return text
+        .toLowerCase()
+        .replace(/[^a-z\s']/g,' ')
+        .split(/\s+/)
+        .filter(Boolean);
+    }
+
+    function countSyllables(word){
+      word = word.toLowerCase();
+      if(word.length <= 3) return 1;
+      const vowels = 'aeiouy';
+      let count = 0; let prevVowel = false;
+      for(const ch of word){
+        const isVowel = vowels.includes(ch);
+        if(isVowel && !prevVowel) count++;
+        prevVowel = isVowel;
+      }
+      if(word.endsWith('e')) count = Math.max(1, count - 1);
+      return count;
+    }
+
+    function fleschReadingEase(text){
+      const sentences = Math.max(1, (text.match(/[.!?]+/g)||[]).length);
+      const words = tokenize(text);
+      const wordCount = Math.max(1, words.length);
+      const syllables = words.reduce((a,w)=> a + countSyllables(w), 0);
+      const ASL = wordCount / sentences; // avg sentence length
+      const ASW = syllables / wordCount; // avg syllables per word
+      // Flesch Reading Ease
+      const FRE = 206.835 - 1.015 * ASL - 84.6 * ASW;
+      return Math.round(FRE);
+    }
+
+    function frequency(words){
+      const freq = new Map();
+      for(const w of words){
+        if(stopwords.has(w) || w.length < 3) continue;
+        freq.set(w, (freq.get(w)||0)+1);
+      }
+      return [...freq.entries()].sort((a,b)=> b[1]-a[1]);
+    }
+
+    function scoreRatio(a,b){
+      const total = a + b;
+      return total === 0 ? 0.5 : a / total;
+    }
+
+    function pickTopTerms(freqList, n = 8){
+      return freqList.slice(0, n).map(([w,c])=> ({ term: w, count: c }));
+    }
+
+    function analyze(text){
+      const words = tokenize(text);
+      const freq = frequency(words);
+
+      const pos = words.filter(w=> positive.has(w)).length;
+      const neg = words.filter(w=> negative.has(w)).length;
+      const sentiment = Math.round(scoreRatio(pos, neg) * 100);
+
+      const anal = words.filter(w=> analytical.has(w)).length;
+      const intu = words.filter(w=> intuitive.has(w)).length;
+      const analyticalRatio = scoreRatio(anal, intu);
+
+      const abs = words.filter(w=> abstractTerms.has(w)).length;
+      const conc = words.filter(w=> sensoryTerms.has(w)).length;
+      const abstractRatio = scoreRatio(abs, conc);
+
+      const cert = words.filter(w=> certainty.has(w)).length;
+      const tent = words.filter(w=> tentative.has(w)).length;
+      const certaintyRatio = scoreRatio(cert, tent);
+
+      const past = words.filter(w=> pastCue.has(w)).length;
+      const pres = words.filter(w=> presentCue.has(w)).length;
+      const fut = words.filter(w=> futureCue.has(w)).length;
+
+      const timeTotal = past + pres + fut || 1;
+      const time = {
+        past: past / timeTotal,
+        present: pres / timeTotal,
+        future: fut / timeTotal
+      };
+
+      const fre = fleschReadingEase(text);
+
+      // Map to radar axes (0..100)
+      const radar = {
+        Optimism: sentiment, // 0..100
+        Analytical: Math.round(analyticalRatio * 100),
+        Abstract: Math.round(abstractRatio * 100),
+        Certainty: Math.round(certaintyRatio * 100),
+        Future: Math.round(time.future * 100)
+      };
+
+      return {
+        sentiment,
+        pos, neg,
+        analyticalRatio,
+        abstractRatio,
+        certaintyRatio,
+        time,
+        radar,
+        fre,
+        freq: pickTopTerms(freq)
+      };
+    }
+
+    // --------------------------
+    // UI Wiring
+    // --------------------------
+    const ctx = by('radarChart').getContext('2d');
+    const radarChart = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: ['Optimism','Analytical','Abstract','Certainty','Future'],
+        datasets: [{
+          label: 'Profile',
+          data: [50,50,50,50,50],
+          fill: true,
+          borderWidth: 2,
+          pointRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        elements: { line: { borderWidth: 2 } },
+        scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    function updateUI(text){
+      const a = analyze(text);
+
+      // Meta counts
+      by('metaCounts').textContent = `${tokenize(text).length} words • ${text.length} chars`;
+
+      // Sentiment
+      by('sentimentScore').textContent = a.sentiment;
+      by('sentimentDetail').textContent = a.sentiment > 60 ? `Positive-leaning (${a.pos}:${a.neg})` : a.sentiment < 40 ? `Cautious-leaning (${a.pos}:${a.neg})` : `Balanced (${a.pos}:${a.neg})`;
+
+      // Tone badge
+      const badge = by('toneBadge');
+      let tone = 'Neutral';
+      if(a.sentiment >= 70) tone = 'Optimistic';
+      else if(a.sentiment <= 30) tone = 'Cautious';
+      badge.textContent = tone;
+
+      // Readability
+      by('readability').textContent = isNaN(a.fre) ? '—' : a.fre;
+
+      // Radar
+      const r = a.radar;
+      radarChart.data.datasets[0].data = [r.Optimism, r.Analytical, r.Abstract, r.Certainty, r.Future];
+      radarChart.update();
+
+      // Keywords
+      const kw = by('keywords');
+      kw.innerHTML = '';
+      a.freq.forEach(({term, count})=>{
+        const pill = document.createElement('span');
+        pill.className = 'px-2 py-1 rounded-full bg-slate-50 border border-slate-200';
+        pill.textContent = `${term} ×${count}`;
+        kw.appendChild(pill);
+      });
+
+      // Insights
+      const insights = by('insights');
+      insights.innerHTML = '';
+      const bullets = [
+        a.analyticalRatio > 0.6 ? 'Reasoning language dominates over intuitive cues.' : a.analyticalRatio < 0.4 ? 'Intuitive language outweighs analytical markers.' : 'Balanced mix of analytical and intuitive cues.',
+        a.abstractRatio > 0.6 ? 'Abstract scaffolding (ideas, models, strategy) is prominent.' : a.abstractRatio < 0.4 ? 'Concrete/sensory language features strongly.' : 'Blend of abstract and concrete focus.',
+        a.certaintyRatio > 0.6 ? 'High certainty language; consider noting assumptions explicitly.' : a.certaintyRatio < 0.4 ? 'Hedging language present; clarity may benefit from firming decisions.' : 'Certainty and tentativeness are balanced.',
+        a.time.future > 0.45 ? 'Future-oriented framing dominates.' : a.time.past > 0.45 ? 'Past/retrospective framing dominates.' : 'Present-focused or evenly distributed time framing.'
+      ];
+      bullets.forEach(b=>{
+        const li = document.createElement('li');
+        li.textContent = b;
+        insights.appendChild(li);
+      });
+
+      return a;
+    }
+
+    // Event handlers
+    const input = by('inputText');
+    input.addEventListener('input', () => updateUI(input.value));
+
+    // Buttons
+    by('btnReset').addEventListener('click', () => {
+      input.value = '';
+      updateUI('');
+    });
+
+    by('btnCopyKeywords').addEventListener('click', () => {
+      const text = [...document.querySelectorAll('#keywords span')].map(el=> el.textContent).join(', ');
+      navigator.clipboard.writeText(text || '').then(()=>{
+        const btn = by('btnCopyKeywords');
+        btn.textContent = 'Copied!';
+        setTimeout(()=> btn.textContent = 'Copy', 1200);
+      });
+    });
+
+    by('btnExportJSON').addEventListener('click', () => {
+      const analysis = updateUI(input.value);
+      const blob = new Blob([JSON.stringify(analysis, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mind-mirror-analysis.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    // Initial demo text (optional)
+    const demo = "We're exploring a product direction that balances evidence with imagination. The goal is to model trade-offs and clarify assumptions. I feel optimistic we can discover a clear path if we test quickly and learn.";
+    input.value = demo;
+    updateUI(demo);
+  </script>
+</body>
+</html>
