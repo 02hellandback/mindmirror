@@ -16,6 +16,28 @@
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
     ::-webkit-scrollbar-track { background: transparent; }
+    /* Fix Chart.js autoresize growth on some browsers */
+.chart-box { height: 320px; }
+canvas { display: block; } /* avoids inline-block whitespace quirks */
+    <div class="rounded-2xl border border-slate-200 p-4 chart-box">
+  <canvas id="radarChart" aria-label="Cognitive Radar" role="img" class="w-full h-full"></canvas>
+    const radarChart = new Chart(ctx, {
+  type: 'radar',
+  data: { /* ... */ },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,   // parent has fixed height via .chart-box
+    resizeDelay: 150,             // debounce resize observer
+    animation: { duration: 0 },   // avoid subtle growth loops
+    elements: { line: { borderWidth: 2 } },
+    scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } },
+    plugins: { legend: { display: false } }
+  }
+});
+
+</div>
+
+
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-slate-800">
